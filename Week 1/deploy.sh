@@ -1,92 +1,56 @@
 #!/bin/bash
 
-# Variabelen
+# Stap 1: Variabelen instellen
 resourceGroup="S1203586"
 location="West Europe"
 vnetName="myVnet"
 subnetWeb="subnetWeb"
 subnetDB="subnetDB"
-subnetMgmt="subnetMgmt"
-nsgWeb="NSGWeb"
-nsgMgmt="NSGMgmt"
 lbName="myLoadBalancer"
 publicIPName="myPublicIP"
 frontendIPConfig="myFrontendIP"
 backendPoolName="myBackendPool"
 probeName="myProbe"
 lbRule="myLBRule"
-jumpboxName="JumpboxVM"
-vmssName="WebVMSS"
+jumpboxName="jumpboxVM"
+jumpboxIP="jumpboxIP"
+vmssName="webVMSS"   # Naam voor VMSS
+vmssSku="Standard_DS2_v2" # SKU voor de VMSS
+vmssCapacity="2"     # Aantal VM's in de VMSS
 
-# Resourcegroep controleren (bestaat al, dus geen create)
-
-# VNET en subnets
-az network vnet create --resource-group $resourceGroup --name $vnetName --address-prefix 10.0.0.0/16 \
-  --subnet-name $subnetWeb --subnet-prefix 10.0.1.0/24
-
+# Stap 2: VNET en subnets maken
+az network vnet create --resource-group $resourceGroup --name $vnetName --address-prefix 10.0.0.0/16 --subnet-name $subnetWeb --subnet-prefix 10.0.1.0/24
 az network vnet subnet create --resource-group $resourceGroup --vnet-name $vnetName --name $subnetDB --address-prefix 10.0.2.0/24
-az network vnet subnet create --resource-group $resourceGroup --vnet-name $vnetName --name $subnetMgmt --address-prefix 10.0.3.0/24
 
-# NSG's
-az network nsg create --resource-group $resourceGroup --name $nsgWeb
-az network nsg rule create --resource-group $resourceGroup --nsg-name $nsgWeb --name AllowHTTP \
-  --protocol tcp --direction inbound --priority 1000 --source-address-prefix '*' --source-port-range '*' \
-  --destination-address-prefix '*' --destination-port-range 80 --access allow
+# Stap 3: Public IP maken voor Load Balancer
+az network public-ip create --resource-group $resourceGroup --name $publicIPName --allocation-method Static --sku Standard --location $location
 
-az network vnet subnet update --resource-group $resourceGroup --vnet-name $vnetName --name $subnetWeb --network-security-group $nsgWeb
+# Stap 4: Load Balancer aanmaken
+az network lb create --resource-group $resourceGroup --name $lbName --sku Standard --frontend-ip-name $frontendIPConfig --public-ip-address $publicIPName --location $location
 
-az network nsg create --resource-group $resourceGroup --name $nsgMgmt
-az network nsg rule create --resource-group $resourceGroup --nsg-name $nsgMgmt --name AllowSSH \
-  --protocol tcp --direction inbound --priority 1000 --source-address-prefix '*' --source-port-range '*' \
-  --destination-address-prefix '*' --destination-port-range 22 --access allow
-
-az network vnet subnet update --resource-group $resourceGroup --vnet-name $vnetName --name $subnetMgmt --network-security-group $nsgMgmt
-
-# Public IP voor Load Balancer
-az network public-ip create --resource-group $resourceGroup --name $publicIPName --allocation-method Static --sku Standard --location "$location"
-
-# Load Balancer
-az network lb create --resource-group $resourceGroup --name $lbName --sku Standard \
-  --frontend-ip-name $frontendIPConfig --public-ip-address $publicIPName --location "$location"
-
+# Stap 5: Backend pool aanmaken voor Load Balancer
 az network lb address-pool create --resource-group $resourceGroup --lb-name $lbName --name $backendPoolName
 
-az network lb probe create --resource-group $resourceGroup --lb-name $lbName --name $probeName \
-  --protocol Tcp --port 80 --interval 5 --threshold 2
+# Stap 6: Health probe configureren voor Load Balancer (voor web servers)
+az network lb probe create --resource-group $resourceGroup --lb-name $lbName --name $probeName --protocol Tcp --port 80 --interval 5 --threshold 2
 
-az network lb rule create --resource-group $resourceGroup --lb-name $lbName --name $lbRule \
-  --protocol Tcp --frontend-port 80 --backend-port 80 --frontend-ip-name $frontendIPConfig \
-  --backend-address-pool-name $backendPoolName --probe-name $probeName
+# Stap 7: Load balancer rule voor HTTP-verkeer instellen
+az network lb rule create --resource-group $resourceGroup --lb-name $lbName --name $lbRule --protocol Tcp --frontend-port 80 --backend-port 80 --frontend-ip-name $frontendIPConfig --backend-address-pool-name $backendPoolName --probe-name $probeName
 
-# VM Scale Set voor Weblaag
-az vmss create \
-  --resource-group $resourceGroup \
-  --name $vmssName \
-  --image UbuntuLTS \
-  --upgrade-policy-mode automatic \
-  --admin-username azureuser \
-  --generate-ssh-keys \
-  --vnet-name $vnetName \
-  --subnet $subnetWeb \
-  --backend-pool-name $backendPoolName \
-  --lb $lbName \
-  --instance-count 2 \
-  --load-balancer-sku Standard \
-  --vm-sku Standard_B1s \
-  --custom-data cloud-init.txt
+# Stap 8: Jumpbox VM maken (via Ubuntu)
+az vm create --resource-group $resourceGroup --name $jumpboxName --image UbuntuLTS --vnet-name $vnetName --subnet $subnetWeb --admin-username azureuser --generate-ssh-keys --public-ip-address $jumpboxIP
 
-# Jumpbox VM
-az vm create \
-  --resource-group $resourceGroup \
-  --name $jumpboxName \
-  --image UbuntuLTS \
-  --vnet-name $vnetName \
-  --subnet $subnetMgmt \
-  --admin-username azureuser \
-  --generate-ssh-keys \
-  --public-ip-sku Standard
+# Stap 9: VM Scale Set (VMSS) maken voor web servers (Ubuntu)
+az vmss create --resource-group $resourceGroup --name $vmssName --image UbuntuLTS --upgrade-policy-mode automatic --admin-username azureuser --generate-ssh-keys --vnet-name $vnetName --subnet $subnetWeb --instance-count $vmssCapacity --vm-sku $vmssSku
 
-# Load Balancer IP ophalen
+# Stap 10: NSG regels voor web subnet
+az network nsg create --resource-group $resourceGroup --name NSGWeb
+az network nsg rule create --resource-group $resourceGroup --nsg-name NSGWeb --name AllowHttp --protocol tcp --direction inbound --priority 1000 --source-address-prefix '*' --source-port-range '*' --destination-address-prefix '*' --destination-port-range 80 --access allow
+az network vnet subnet update --resource-group $resourceGroup --vnet-name $vnetName --name $subnetWeb --network-security-group NSGWeb
+
+# Stap 11: Het IP van de Load Balancer ophalen
 lbIP=$(az network public-ip show --resource-group $resourceGroup --name $publicIPName --query "ipAddress" --output tsv)
 
-echo "✅ Load Balancer IP: $lbIP"
+echo "De Load Balancer is ingesteld en heeft het IP adres: $lbIP"
+echo "De Jumpbox VM is ingesteld op IP adres: $jumpboxIP"
+echo "De VMSS voor web servers is ingesteld met $vmssCapacity instanties."
