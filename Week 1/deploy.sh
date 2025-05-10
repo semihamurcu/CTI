@@ -19,12 +19,13 @@ vmssSku="Standard_DS2_v2"
 vmssCapacity="2"
 
 # Stap 2: Maak Virtual Network en Subnets
+# SubnetWeb
 az network vnet create --resource-group $resourceGroup --name $vnetName \
   --address-prefix 10.0.0.0/16 --subnet-name $subnetWeb --subnet-prefix 10.0.1.0/24
-
+# SubnetDatabase
 az network vnet subnet create --resource-group $resourceGroup --vnet-name $vnetName \
   --name $subnetDB --address-prefix 10.0.2.0/24
-
+# SubnetManagement
 az network vnet subnet create --resource-group $resourceGroup --vnet-name $vnetName \
   --name $subnetManagement --address-prefix 10.0.3.0/24
 
