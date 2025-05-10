@@ -15,6 +15,7 @@ In dit project is een schaalbare cloudinfrastructuur gerealiseerd in Microsoft A
 ### ⚙️ Aanpasbaarheid
 - Dankzij subnet-segmentatie kunnen componenten los van elkaar beheerd of uitgebreid worden.
 - Services zoals NSG’s en load balancers zijn modulair toe te voegen of aan te passen zonder het hele netwerk te herzien.
+- 
 
 ### 🛠 Beheerbaarheid
 - Gebruik van **Jumpbox** maakt beheer van backend-VM’s mogelijk zonder directe externe toegang.
