@@ -1,3 +1,19 @@
+# Ontwerpvraagstuk
+De klanten van het Shared Service Center gebruiken veel verschillende multi-tier applicaties. Bedenk hoe het netwerk er technisch uit zou moeten zien. Houd daarbij rekening met aanpasbaarheid, beheerbaarheid, schaalbaarheid,
+beschikbaarheid en security.
+
+
+# Bronnen
+AI:
+https://chatgpt.com/share/681f5d42-98c8-8007-bc7d-25f7ac2788af
+
+Brightspace:
+https://leren.windesheim.nl/d2l/le/lessons/98305/topics/1204082
+
+Microsoft Learn:
+https://learn.microsoft.com/en-us/answers/questions/1045766/3-tier-architecture
+
+
 # Overzicht van de infrastructuur
 In dit project is een schaalbare cloudinfrastructuur gerealiseerd in Microsoft Azure, bestaande uit:
 * Een Virtual Network (VNet) met drie subnets: subnetWeb, subnetDB en subnetManagement
@@ -32,3 +48,5 @@ In dit project is een schaalbare cloudinfrastructuur gerealiseerd in Microsoft A
 ### 🔁 Beschikbaarheid
 - **Availability Zones** zorgen voor failover-mogelijkheden in meerdere datacenters.
 - **Standard Load Balancers** ondersteunen redundantie en health probes.
+
+
