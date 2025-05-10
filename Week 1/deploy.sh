@@ -18,10 +18,6 @@ vmssName="webVMSS"
 vmssSku="Standard_DS2_v2"
 vmssCapacity="2"
 
-# Stap 2: Maak Virtual Network en Subnets
-# SubnetWeb
-az network vnet create --resource-group $resourceGroup --name $vnetName \
-  --address-prefix 10.0.0.0/16 --subnet-name $subnetWeb --subnet-prefix 10.0.1.0/24
 # SubnetDatabase
 az network vnet subnet create --resource-group $resourceGroup --vnet-name $vnetName \
   --name $subnetDB --address-prefix 10.0.2.0/24
@@ -30,6 +26,7 @@ az network vnet subnet create --resource-group $resourceGroup --vnet-name $vnetN
   --name $subnetManagement --address-prefix 10.0.3.0/24
 
 # Stap 3: Public Load Balancer voor weblaag
+echo " Stap 2: Aanmaken van VNet en subnets..."
 az network public-ip create --resource-group $resourceGroup --name $publicIPName \
   --allocation-method Static --sku Standard --location $location
 
@@ -37,6 +34,7 @@ az network lb create --resource-group $resourceGroup --name $lbName --sku Standa
   --frontend-ip-name $frontendIPConfig --public-ip-address $publicIPName
 
 # Stap 4: Backend Pool en Health Probe voor Web LB
+echo " Stap 4: Backend pool en health probe aanmaken..."
 az network lb address-pool create --resource-group $resourceGroup --lb-name $lbName --name $backendPoolName
 
 az network lb probe create --resource-group $resourceGroup --lb-name $lbName --name $probeName \
@@ -44,20 +42,25 @@ az network lb probe create --resource-group $resourceGroup --lb-name $lbName --n
 
 az network lb rule create --resource-group $resourceGroup --lb-name $lbName --name $lbRule \
   --protocol Tcp --frontend-port 80 --backend-port 80 \
-  --frontend-ip-name $frontendIPConfig --backend-address-pool $backendPoolName --probe-name $probeName
+  --frontend-ip-name $frontendIPConfig --backend-pool-name $backendPoolName --probe-name $probeName
 
 # Stap 5: Jumpbox VM in Management Subnet
-az vm create --resource-group $resourceGroup --name $jumpboxName --image Ubuntu2204 \
+echo " Stap 5: Jumpbox VM aanmaken (Windows)..."
+az vm create --resource-group $resourceGroup --name $jumpboxName --image Win2022Datacenter \
   --vnet-name $vnetName --subnet $subnetManagement --admin-username azureuser \
-  --authentication-type ssh --ssh-key-value ~/.ssh/id_rsa.pub --zone 1
+  --admin-password 'Welkom01!' --zone 1
 
 # Stap 6: VM Scale Set voor Weblaag (2 instanties automatisch door --instance-count)
+echo "Stap 6: Weblaag VMSS aanmaken..."
+
 az vmss create --resource-group $resourceGroup --name $vmssName --image Ubuntu2204 \
   --upgrade-policy-mode automatic --admin-username azureuser --ssh-key-value ~/.ssh/id_rsa.pub \
   --zones 1 2 --backend-pool-name $backendPoolName --vnet-name $vnetName --subnet $subnetWeb \
   --load-balancer $lbName --instance-count $vmssCapacity
 
 # Stap 7: NSG's aanmaken en koppelen
+echo "Stap 7: NSG's aanmaken en koppelen..."
+
 az network nsg create --resource-group $resourceGroup --name nsgWeb --location $location
 az network nsg rule create --resource-group $resourceGroup --nsg-name nsgWeb --name AllowHTTP \
   --protocol Tcp --direction Inbound --priority 100 --source-address-prefixes Internet --destination-port-ranges 80 --access Allow
@@ -76,26 +79,33 @@ az network vnet subnet update --resource-group $resourceGroup --vnet-name $vnetN
 az network vnet subnet update --resource-group $resourceGroup --vnet-name $vnetName --name $subnetDB --network-security-group nsgDB
 az network vnet subnet update --resource-group $resourceGroup --vnet-name $vnetName --name $subnetManagement --network-security-group nsgMgmt
 
-# Stap 8: Interne Load Balancer voor Database
-internalLBName="dbInternalLB"
-dbFrontendIP="dbFrontend"
-dbBackendPool="dbBackendPool"
-dbProbe="dbProbe"
-dbLBRule="dbLBRule"
+# Stap 8: Interne Load Balancer voor database
+echo "Stap 8: Interne Load Balancer voor database aanmaken..."
 
+# Lege ILB aanmaken
 az network lb create --resource-group $resourceGroup --name $internalLBName --sku Standard \
-  --frontend-ip-name $dbFrontendIP --backend-pool-name $dbBackendPool \
-  --vnet-name $vnetName --subnet $subnetDB --private-ip-address-version IPv4 --frontend-ip-configurations private \
-  --location $location --zones 1 2
+  --location $location
 
-az network lb probe create --resource-group $resourceGroup --lb-name $internalLBName --name $dbProbe \
-  --protocol Tcp --port 3306 --interval 5 --threshold 2
+# Frontend IP-configuratie aanmaken (private IP in subnet)
+az network lb frontend-ip create --resource-group $resourceGroup --lb-name $internalLBName \
+  --name $dbFrontendIP --subnet $subnetDB --vnet-name $vnetName --private-ip-address-version IPv4
 
+# Backend pool aanmaken
+az network lb address-pool create --resource-group $resourceGroup --lb-name $internalLBName \
+  --name $dbBackendPool
+
+# Probe aanmaken
+az network lb probe create --resource-group $resourceGroup --lb-name $internalLBName \
+  --name $dbProbe --protocol Tcp --port 3306 --interval 5 --threshold 2
+
+# Load balancing rule aanmaken
 az network lb rule create --resource-group $resourceGroup --lb-name $internalLBName --name $dbLBRule \
   --protocol Tcp --frontend-port 3306 --backend-port 3306 \
-  --frontend-ip-name $dbFrontendIP --backend-address-pool $dbBackendPool --probe-name $dbProbe
+  --frontend-ip-name $dbFrontendIP --backend-pool-name $dbBackendPool --probe-name $dbProbe
+
 
 # Stap 9: Database backend VM's aanmaken en toevoegen aan ILB backend pool
+echo "Stap 9: Database VM's aanmaken..."
 az vm create --resource-group $resourceGroup --name dbVM1 --image Ubuntu2204 --vnet-name $vnetName \
   --subnet $subnetDB --admin-username azureuser --authentication-type ssh --ssh-key-value ~/.ssh/id_rsa.pub --zone 1
 
