@@ -1,10 +1,12 @@
 # Overzicht van de infrastructuur
 In dit project is een schaalbare cloudinfrastructuur gerealiseerd in Microsoft Azure, bestaande uit:
-* Een Virtual Network (VNet) met twee subnets: subnetWeb en subnetDB
-* Een Load Balancer met backend pool en health probe
-* Een Virtual Machine Scale Set (VMSS) met twee instanties (Ubuntu 22.04)
-* Een Jumpbox VM voor beheer
-* Network Security Groups (NSG) voor toegangscontrole
+* Een Virtual Network (VNet) met drie subnets: subnetWeb, subnetDB en subnetManagement
+* Een Azure Public Load Balancer (web loadbalancer) voor inkomend internetverkeer, met een backend pool en health   probe
+* Een interne Azure Load Balancer (database loadbalancer) voor verkeer tussen de weblaag en de databaseservers
+* Een Virtual Machine Scale Set (VMSS) met twee Ubuntu 22.04-instanties voor de weblaag
+* Een Jumpbox VM voor beheer vanuit het subnetManagement
+* Network Security Groups (NSG’s) voor toegangscontrole op subnetniveau
+* Gebruik van meerdere availability zones voor verhoogde beschikbaarheid en fouttolerantie
 
 ![alt text](image.png)
 

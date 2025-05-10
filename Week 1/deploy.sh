@@ -17,39 +17,37 @@ vmssName="webVMSS"
 vmssSku="Standard_DS2_v2"
 vmssCapacity="2"
 
-# Stap 2: VNET en subnets maken
+# Step 2: Create Virtual Network and Subnets
 az network vnet create --resource-group $resourceGroup --name $vnetName --address-prefix 10.0.0.0/16 --subnet-name $subnetWeb --subnet-prefix 10.0.1.0/24
 az network vnet subnet create --resource-group $resourceGroup --vnet-name $vnetName --name $subnetDB --address-prefix 10.0.2.0/24
 
-# Stap 3: Public IP maken voor Load Balancer
+# Step 3: Create Load Balancer
 az network public-ip create --resource-group $resourceGroup --name $publicIPName --allocation-method Static --sku Standard --location $location
+az network lb create --resource-group $resourceGroup --name $lbName --sku Standard --frontend-ip-name $frontendIPConfig --public-ip-address $publicIPName
 
-# Stap 4: Load Balancer aanmaken
-az network lb create --resource-group $resourceGroup --name $lbName --sku Standard --frontend-ip-name $frontendIPConfig --public-ip-address $publicIPName --location $location
-
-# Stap 5: Backend pool aanmaken
+# Step 4: Create Backend Pool and Health Probe for Load Balancer
 az network lb address-pool create --resource-group $resourceGroup --lb-name $lbName --name $backendPoolName
-
-# Stap 6: Health probe configureren
 az network lb probe create --resource-group $resourceGroup --lb-name $lbName --name $probeName --protocol Tcp --port 80 --interval 5 --threshold 2
 
-# Stap 7: Load balancer rule instellen
-az network lb rule create --resource-group $resourceGroup --lb-name $lbName --name $lbRule --protocol Tcp --frontend-port 80 --backend-port 80 --frontend-ip-name $frontendIPConfig --backend-pool-name $backendPoolName --probe-name $probeName
+# Step 5: Create Load Balancer Rule
+az network lb rule create --resource-group $resourceGroup --lb-name $lbName --name $lbRule --protocol Tcp --frontend-port 80 --backend-port 80 --frontend-ip-name $frontendIPConfig --backend-address-pool $backendPoolName --probe-name $probeName
 
-# Stap 8: Jumpbox VM aanmaken met ubuntu image
-az vm create --resource-group $resourceGroup --name $jumpboxName --image Ubuntu2204 --vnet-name $vnetName --subnet $subnetWeb --admin-username azureuser --generate-ssh-keys --location $location
+# Step 6: Create Jumpbox VM (Ubuntu) in Zone 1
+az vm create --resource-group $resourceGroup --name $jumpboxName --image Ubuntu2204 --vnet-name $vnetName --subnet $subnetWeb --admin-username azureuser --authentication-type ssh --ssh-key-value ~/.ssh/id_rsa.pub --zone 1
 
-# Stap 9: VM Scale Set aanmaken met ubuntu image
-az vmss create --resource-group $resourceGroup --name $vmssName --image Ubuntu2204 --upgrade-policy-mode automatic --admin-username azureuser --generate-ssh-keys --vm-sku $vmssSku --instance-count $vmssCapacity --vnet-name $vnetName --subnet $subnetWeb --backend-pool-name $backendPoolName --lb $lbName --location $location
+# Step 7: Create Web VM Scale Set in Zone 1
+az vmss create --resource-group $resourceGroup --name $vmssName --image Ubuntu2204 --upgrade-policy-mode automatic --admin-username azureuser --ssh-key-value ~/.ssh/id_rsa.pub --zones 1  # Zone 1
 
-# Stap 10: NSG regels voor web subnet
-az network nsg create --resource-group $resourceGroup --name NSGWeb --location $location
-az network nsg rule create --resource-group $resourceGroup --nsg-name NSGWeb --name AllowHttp --protocol tcp --direction inbound --priority 1000 --destination-port-range 80 --access Allow
-az network vnet subnet update --resource-group $resourceGroup --vnet-name $vnetName --name $subnetWeb --network-security-group NSGWeb
+# Step 8: Create Database 1 in Zone 1
+az mysql server create --resource-group $resourceGroup --name db1-server --location $location --sku-name B_Gen5_1 --admin-user azureuser --admin-password 'password123' --vnet-name $vnetName --subnet $subnetDB --zone 1
 
-# Stap 11: IP van Load Balancer ophalen
+# Step 9: Create Database 2 in Zone 2
+az mysql server create --resource-group $resourceGroup --name db2-server --location $location --sku-name B_Gen5_1 --admin-user azureuser --admin-password 'password123' --vnet-name $vnetName --subnet $subnetDB --zone 2
+
+# Step 10: Output the IP address of the Load Balancer
 lbIP=$(az network public-ip show --resource-group $resourceGroup --name $publicIPName --query "ipAddress" --output tsv)
-
-echo " De Load Balancer is ingesteld met IP adres: $lbIP"
-echo " De Jumpbox VM is aangemaakt"
-echo " De VMSS is aangemaakt met $vmssCapacity instanties"
+echo "De Load Balancer is ingesteld en heeft het IP adres: $lbIP"
+echo "De Jumpbox VM is ingesteld op Zone 1"
+echo "De VMSS is ingesteld in Zone 1"
+echo "De Database 1 is ingesteld in Zone 1"
+echo "De Database 2 is ingesteld in Zone 2"
