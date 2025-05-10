@@ -1,3 +1,6 @@
+Studentnummer S1203586
+Semih Hamurcu
+
 ### Ontwerpvraagstuk
 De klanten van het Shared Service Center gebruiken veel verschillende multi-tier applicaties. Bedenk hoe het netwerk er technisch uit zou moeten zien. Houd daarbij rekening met aanpasbaarheid, beheerbaarheid, schaalbaarheid,
 beschikbaarheid en security.
