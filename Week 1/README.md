@@ -1,16 +1,16 @@
-# Ontwerpvraagstuk
+### Ontwerpvraagstuk
 De klanten van het Shared Service Center gebruiken veel verschillende multi-tier applicaties. Bedenk hoe het netwerk er technisch uit zou moeten zien. Houd daarbij rekening met aanpasbaarheid, beheerbaarheid, schaalbaarheid,
 beschikbaarheid en security.
-# Automatiseringsvraagstuk
+### Automatiseringsvraagstuk
 SSC krijgt regelmatig nieuwe klanten.
 Het inrichten van de netwerken voor de multi-tier applicaties is
 steeds veel handmatig klikwerk. Welke scripts en welke
 technologie kan SSC gebruiken om dit automatiseren?
 
-# Criteria
+### Criteria
 ![alt text](image-1.png)
 
-# Bronnen
+### Bronnen
 AI:
 https://chatgpt.com/share/681f5d42-98c8-8007-bc7d-25f7ac2788af
 
