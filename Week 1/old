@@ -1,0 +1,28 @@
+# Stap 5: Jumpbox VM in Management Subnet
+echo " Stap 5: Jumpbox VM aanmaken..."
+az vm create --resource-group $resourceGroup --name $jumpboxName --image Ubuntu2204 \
+  --vnet-name $vnetName --subnet $subnetManagement --admin-username azureuser \
+  --authentication-type ssh --ssh-key-value ~/.ssh/id_rsa.pub --zone 1
+
+  
+# Stap 6: VM Scale Set voor Weblaag
+echo "Stap 6: Weblaag VMSS aanmaken..."
+az vmss create --resource-group $resourceGroup --name $vmssName --image Win2022Datacenter \
+  --upgrade-policy-mode automatic --admin-username $adminUsername --admin-password $adminPassword \
+  --zones 1 2 --backend-pool-name $backendPoolName --vnet-name $vnetName --subnet $subnetWeb \
+  --load-balancer $lbName --instance-count $vmssCapacity
+
+
+# Stap 9: Database backend VM's aanmaken en toevoegen aan ILB backend pool
+echo "Stap 9: Database VM's aanmaken..."
+az vm create --resource-group $resourceGroup --name dbVM1 --image Win2022Datacenter --vnet-name $vnetName \
+  --subnet $subnetDB --admin-username $adminUsername --admin-password $adminPassword --zone 1
+
+az vm create --resource-group $resourceGroup --name dbVM2 --image Win2022Datacenter --vnet-name $vnetName \
+  --subnet $subnetDB --admin-username $adminUsername --admin-password $adminPassword --zone 2
+
+az network nic ip-config address-pool add --address-pool $dbBackendPool --ip-config-name ipconfig1 \
+  --nic-name dbVM1VMNic --resource-group $resourceGroup --lb-name $internalLBName
+
+az network nic ip-config address-pool add --address-pool $dbBackendPool --ip-config-name ipconfig1 \
+  --nic-name dbVM2VMNic --resource-group $resourceGroup --lb-name $internalLBName
